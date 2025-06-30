@@ -1,10 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"os"
 
+	"github.com/Sitch196/Go_test/handlers"
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
 )
 
 type Todo struct {
@@ -16,51 +18,19 @@ type Todo struct {
 func main() {
 	app := fiber.New()
 
-	todos := []Todo{}
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("error loading env")
+	}
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Status(200).JSON(fiber.Map{"status": "Success", "data": todos})
+	PORT := os.Getenv("PORT")
 
-	})
-	app.Post("/api/todos", func(c *fiber.Ctx) error {
-		todo := &Todo{}
-		if err := c.BodyParser(todo); err != nil {
-			return err
-		}
+	app.Get("/", handlers.GetTodos)
 
-		if todo.Body == "" {
-			return c.Status(400).JSON(fiber.Map{"error": "Body can not be empty"})
-		}
+	app.Post("/api/todos", handlers.CreateTodo)
 
-		todo.ID = len(todos) + 1
-		todos = append(todos, *todo)
+	app.Patch("api/todos/:id", handlers.ToggleTodo)
 
-		return c.Status(201).JSON(fiber.Map{"status": "Success", "data": todo})
-	})
-
-	app.Patch("api/todos/:id", func(c *fiber.Ctx) error {
-		id := c.Params("id")
-
-		for i, todo := range todos {
-			if fmt.Sprint(todo.ID) == id {
-				todos[i].Completed = !todo.Completed
-				return c.Status(200).JSON(todos[i])
-			}
-		}
-		return c.Status(404).JSON(fiber.Map{"status": "failed", "message": "Todos not found"})
-	})
-
-	app.Delete("/api/todos/:id", func(c *fiber.Ctx) error {
-		id := c.Params("id")
-
-		for i, todo := range todos {
-			if fmt.Sprint(todo.ID) == id {
-				todos = append(todos[:i], todos[i+1:]...)
-				return c.Status(200).JSON(fiber.Map{"status": "Success", "message": "Todo deleted"})
-			}
-		}
-
-		return c.Status(404).JSON(fiber.Map{"error ": "todo with this id not found"})
-	})
-	log.Fatal(app.Listen(":4000"))
+	app.Delete("/api/todos/:id", handlers.DeleteTodo)
+	log.Fatal(app.Listen(":" + PORT))
 }
