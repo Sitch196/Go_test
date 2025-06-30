@@ -1,0 +1,11 @@
+# Root directory of the project
+root = "."
+
+# Temporary directory where air stores intermediate files
+tmp_dir = "tmp"
+
+[build]
+bin = "main"
+cmd = "go build -o {{.Output}} {{.Input}}"
+include_ext = ["go"]
+exclude_dir = ["tmp", "client"]
