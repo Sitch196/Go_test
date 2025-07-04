@@ -1,61 +1,43 @@
 package handlers
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Todo struct {
-	ID        int    `json:"id"`
+	ID        int    `bson:"_id"`
 	Completed bool   `json:"completed"`
 	Body      string `json:"body"`
 }
 
-var todos []Todo
+var collection *mongo.Collection
+
+// SetCollection allows main.go to set the MongoDB collection
+func SetCollection(c *mongo.Collection) {
+	collection = c
+}
 
 func GetTodos(c *fiber.Ctx) error {
-	return c.Status(200).JSON(fiber.Map{
-		"status": "Success",
-		"data":   todos,
-	})
-}
+	var todos []Todo
+	cursor, err := collection.Find(context.Background(), bson.M{})
 
-func CreateTodo(c *fiber.Ctx) error {
-	todo := &Todo{}
-	if err := c.BodyParser(todo); err != nil {
+	if err != nil {
 		return err
 	}
-	if todo.Body == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "Body can not be empty"})
-	}
-	todo.ID = len(todos) + 1
-	todos = append(todos, *todo)
 
-	return c.Status(201).JSON(fiber.Map{"status": "Success", "data": todo})
-}
+	defer cursor.Close(context.Background())
 
-func ToggleTodo(c *fiber.Ctx) error {
-	id := c.Params("id")
-
-	for i, todo := range todos {
-		if fmt.Sprint(todo.ID) == id {
-			todos[i].Completed = !todo.Completed
-			return c.Status(200).JSON(todos[i])
+	for cursor.Next(context.Background()) {
+		var todo Todo
+		if err := cursor.Decode(&todo); err != nil {
+			return err
 		}
+		todos = append(todos, todo)
+
 	}
-	return c.Status(404).JSON(fiber.Map{"status": "failed", "message": "Todo not found"})
-}
-
-func DeleteTodo(c *fiber.Ctx) error {
-	id := c.Params("id")
-
-	for i, todo := range todos {
-		if fmt.Sprint(todo.ID) == id {
-			todos = append(todos[:i], todos[i+1:]...)
-			return c.Status(200).JSON(fiber.Map{"status": "Success", "message": "Todo deleted"})
-		}
-	}
-
-	return c.Status(404).JSON(fiber.Map{"error ": "todo with this id not found"})
+	return c.JSON(todos)
 }

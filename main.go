@@ -1,40 +1,51 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/Sitch196/Go_test/handlers"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Todo struct {
-	ID        int    `json:"id"`
-	Completed bool   `json:"completed"`
-	Body      string `json:"body"`
-}
+var collection *mongo.Collection
 
 func main() {
-	app := fiber.New()
-
 	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatal("error loading env")
+		log.Fatal("error loading env file:", err)
 	}
 
-	PORT := os.Getenv("PORT")
+	MONGO_URI := os.Getenv("MONGO_URI")
+	clientOptions := options.Client().ApplyURI(MONGO_URI)
+	client, err := mongo.Connect(context.Background(), clientOptions)
 
-	// Public route
-	app.Get("/", handlers.GetTodos)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = client.Ping(context.Background(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Connected to MongoDB")
+	collection = client.Database("golang_db").Collection("todos")
 
-	// Auth route
-	app.Post("/login", handlers.Login)
+	handlers.SetCollection(collection)
 
-	// Protected routes
-	app.Post("/api/todos", handlers.JWTProtected(), handlers.CreateTodo)
-	app.Patch("/api/todos/:id", handlers.JWTProtected(), handlers.ToggleTodo)
-	app.Delete("/api/todos/:id", handlers.JWTProtected(), handlers.DeleteTodo)
+	app := fiber.New()
 
-	log.Fatal(app.Listen(":" + PORT))
+	app.Get("/api/todos", handlers.GetTodos)
+	// app.Post("/api/todos", handlers.CreateTodo)
+	// app.Patch("/api/todos/:id", handlers.ToggleTodo)
+	// app.Delete("/api/todos/:id", handlers.DeleteTodo)
+
+	port := os.Getenv("PORT")
+
+	fmt.Printf("Starting server on port %s\n", port)
+	app.Listen(":" + port)
 }
