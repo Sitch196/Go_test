@@ -25,12 +25,16 @@ func main() {
 
 	PORT := os.Getenv("PORT")
 
+	// Public route
 	app.Get("/", handlers.GetTodos)
 
-	app.Post("/api/todos", handlers.CreateTodo)
+	// Auth route
+	app.Post("/login", handlers.Login)
 
-	app.Patch("api/todos/:id", handlers.ToggleTodo)
+	// Protected routes
+	app.Post("/api/todos", handlers.JWTProtected(), handlers.CreateTodo)
+	app.Patch("/api/todos/:id", handlers.JWTProtected(), handlers.ToggleTodo)
+	app.Delete("/api/todos/:id", handlers.JWTProtected(), handlers.DeleteTodo)
 
-	app.Delete("/api/todos/:id", handlers.DeleteTodo)
 	log.Fatal(app.Listen(":" + PORT))
 }
